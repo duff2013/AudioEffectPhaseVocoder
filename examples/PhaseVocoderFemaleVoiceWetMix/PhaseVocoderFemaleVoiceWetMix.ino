@@ -55,7 +55,7 @@ void loop() {
   button4.update();
 
   if (button0.fallingEdge()) {
-    vocoder.pitchShift(-5);
+    vocoder.setPitchShift(-5);
     Serial.print("Pitch Shift -5 Semitones | ");
     Serial.print("Max CPU Usage = ");
     Serial.print(AudioProcessorUsageMax(), 1);
@@ -63,7 +63,7 @@ void loop() {
     voice.play(sample);
   }
   if (button1.fallingEdge()) {
-    vocoder.pitchShift(-3);
+    vocoder.setPitchShift(-3);
     Serial.print("Pitch Shift -3 Semitones | ");
     Serial.print("Max CPU Usage = ");
     Serial.print(AudioProcessorUsageMax(), 1);
@@ -71,7 +71,7 @@ void loop() {
     voice.play(sample);
   }
   if (button2.fallingEdge()) {
-    vocoder.pitchShift(0);
+    vocoder.setPitchShift(0);
     Serial.print("Pitch Shift 0 Semitones | ");
     Serial.print("Max CPU Usage = ");
     Serial.print(AudioProcessorUsageMax(), 1);
@@ -79,7 +79,7 @@ void loop() {
     voice.play(sample);
   }
   if (button3.fallingEdge()) {
-    vocoder.pitchShift(3);
+    vocoder.setPitchShift(3);
     Serial.print("Pitch Shift 3 Semitones | ");
     Serial.print("Max CPU Usage = ");
     Serial.print(AudioProcessorUsageMax(), 1);
@@ -87,7 +87,7 @@ void loop() {
     voice.play(sample);
   }
   if (button4.fallingEdge()) {
-    vocoder.pitchShift(5);
+    vocoder.setPitchShift(5);
     Serial.print("Pitch Shift 5 Semitones | ");
     Serial.print("Max CPU Usage = ");
     Serial.print(AudioProcessorUsageMax(), 1);
