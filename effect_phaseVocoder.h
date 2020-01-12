@@ -22,8 +22,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-#ifndef vocoder_h_
-#define vocoder_h_
+#ifndef phase_vocoder_h_
+#define phase_vocoder_h_
 
 #include "Arduino.h"
 #include "AudioStream.h"
@@ -43,9 +43,9 @@ extern "C" {
 #define OVER_SAMPLE 8
 #define HALF_FFT_SIZE FFT_SIZE / 2
 
-class AudioEffectVocoder : public AudioStream {
+class AudioEffectPhaseVocoder : public AudioStream {
 public:
-    AudioEffectVocoder() : AudioStream(1, inputQueueArray),
+    AudioEffectPhaseVocoder() : AudioStream(1, inputQueueArray),
                            pshift(0),
                            state(0)
     {
@@ -58,12 +58,12 @@ public:
         coefA = coefA_512_f32;
         coefB = coefB_512_f32;
     }
-    
+
     float setPitchShift(float semitones) {
         pshift = powf(2.0f, semitones / 12.0f);
         return pshift;
     }
-    
+
     virtual void update(void);
 private:
     const float *window;
@@ -77,6 +77,7 @@ private:
     const long  STEP_SIZE    = FFT_SIZE / OVER_SAMPLE;
     const float FREQ_PER_BIN = AUDIO_SAMPLE_RATE_EXACT / (float)FFT_SIZE;
     const float EXPECT       = 2.0f * M_PI * (float)STEP_SIZE / (float)FFT_SIZE;
+    float Max_Magns             [10];
     float Phase_Sum             [FFT_SIZE];
     float FFT_Frame             [FFT_SIZE];
     float Last_Phase            [FFT_SIZE];

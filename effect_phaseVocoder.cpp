@@ -25,12 +25,16 @@
 #include <Arduino.h>
 #include "effect_vocoder.h"
 
-void AudioEffectVocoder::update(void) {
+void findMaxAndSort(uint8_t index, float magn) {
+
+}
+
+void AudioEffectPhaseVocoder::update(void) {
     audio_block_t *block;
-    
+
     block = receiveReadOnly();
     if (!block) return;
-    
+
 #if defined(__ARM_ARCH_7EM__)
     switch (state) {
         case 0:
@@ -65,68 +69,170 @@ void AudioEffectVocoder::update(void) {
             blocklist[7] = block;
             float diff_phase;
             long qpd, index = 0;
-            
+
             for (int k = 0; k < 8; k++) {
                 arm_q15_to_float(blocklist[k]->data, FFT_Frame + (k * AUDIO_BLOCK_SAMPLES), AUDIO_BLOCK_SAMPLES);
             }
-            
+
             for (int k = 0; k < FFT_SIZE; k++) {
                 FFT_Frame[k] = FFT_Frame[k] * window[k];
             }
-            
+
             arm_cfft_f32(instance, FFT_Frame, 0, 1);
             split_rfft_f32(FFT_Frame, HALF_FFT_SIZE, coefA, coefB, FFT_Split_Frame);
-            
+
+            float max_magn = 0.0f;
+            uint16_t max_magn_index = 0;
+            float i_frac = 0.0f;
+            float ratio = 0.0f;
+
+            int peakIndexs[10] = {0};
+
+            for (int k = 0; k < HALF_FFT_SIZE; k++) {
+                float real = FFT_Split_Frame[2 * k];
+                float imag = FFT_Split_Frame[2 * k + 1];
+                float magn = 2.0f * sqrtf(real * real + imag * imag);
+                if (magn > max_magn) {
+
+                    max_magn_index = k;
+                    max_magn = magn;
+                }
+                for (int i = 0; i < 10; i++) {
+                    if (magn > peakIndexs[i]) {
+                        peakIndexs[i] = magn;
+                        break;
+                    }
+                }
+
+
+                /*real = FFT_Split_Frame[2 * (max_magn_index-1)];
+                imag = FFT_Split_Frame[2 * (max_magn_index-1) + 1];
+                float magn_minus = 2.0f * sqrtf(real * real + imag * imag);
+
+                real = FFT_Split_Frame[2 * (max_magn_index+1)];
+                imag = FFT_Split_Frame[2 * (max_magn_index+1) + 1];
+                float magn_plus = 2.0f * sqrtf(real * real + imag * imag);
+
+
+                if (magn_plus == 0 && magn_minus == 0) {
+                    i_frac = max_magn_index;
+                }
+                else if(magn_plus > magn_minus) {
+                    ratio = max_magn/magn_plus;
+                    i_frac = max_magn_index + (2.0-ratio)/(1.0+ratio);
+                }
+                else {
+                    ratio = max_magn/magn_minus;
+                    i_frac = max_magn_index - (2.0-ratio)/(1.0+ratio);
+                }*/
+            }
+
+
             memset(Synth_Magn, 0, HALF_FFT_SIZE * sizeof(float));
             memset(Synth_Freq, 0, HALF_FFT_SIZE * sizeof(float));
-            
+
             for (int k = 0; k < HALF_FFT_SIZE; k++) {
-                index = k * pshift;
-                if (index < HALF_FFT_SIZE) {
+
+
+                if (pshift != 1.0) {
+
                     float real = FFT_Split_Frame[2 * k];
                     float imag = FFT_Split_Frame[2 * k + 1];
-                    
+
                     float phase = atan2_fast(imag, real);
                     float magn = 2.0f * sqrtf(real * real + imag * imag);
-                    
+
                     float last_phase = Last_Phase[k];
                     Last_Phase[k] = phase;
-                    
+
                     int q = 0.07957747154594767f * (4.0f * phase - 4.0f * last_phase - PI * k);
                     qpd = (q & 1) ^ q;
-                    
+
                     diff_phase = -0.000000397912725f * (433096375.5250785f * qpd - 137858858 * phase + 137858858 * last_phase);
-                    
-                    Synth_Magn[index] += magn;
-                    Synth_Freq[index] = diff_phase * pshift;
+
+                    index = k * pshift;
+                    //if (index < HALF_FFT_SIZE) {
+                    //Synth_Magn[index] += magn;
+                    //Synth_Freq[index] = diff_phase * pshift;
+                    if (k == max_magn_index+2 || k == max_magn_index || k == max_magn_index-2) {
+                    //if (k == max_magn_index) {
+                        //Serial.print("1: ");
+                        //Serial.print(max_magn_index);
+                        //Serial.print(" | k: ");
+                        //Serial.println(k);
+                        if (index < HALF_FFT_SIZE) {
+                            Synth_Magn[index] += magn;
+                            Synth_Freq[index] = diff_phase * pshift;
+                        }
+                        Synth_Magn[k] += 0;
+                        Synth_Freq[k] = diff_phase;
+                    }
+                    //else if (k == max_magn_index*2) {
+                    //else if ((k <= max_magn_index*2+2 && k >= max_magn_index*2-2)) {
+                    else if ((k == max_magn_index*2+2 || k == max_magn_index*2 || k == max_magn_index*2-2)) {
+                        //Serial.print("2: ");
+                        //Serial.print(max_magn_index);
+                        //Serial.print(" | k: ");
+                        //Serial.println(k);
+
+                    } else {
+                        //Serial.print("3: ");
+                        //Serial.print(max_magn_index);
+                        //Serial.print(" | k: ");
+                        //Serial.println(k);
+
+                        Synth_Magn[k] += magn;
+                        Synth_Freq[k] = diff_phase;
+                    }
+                } else {
+                    index = k * pshift;
+                    if (index < HALF_FFT_SIZE) {
+                        float real = FFT_Split_Frame[2 * k];
+                        float imag = FFT_Split_Frame[2 * k + 1];
+
+                        float phase = atan2_fast(imag, real);
+                        float magn = 2.0f * sqrtf(real * real + imag * imag);
+
+                        float last_phase = Last_Phase[k];
+                        Last_Phase[k] = phase;
+
+                        int q = 0.07957747154594767f * (4.0f * phase - 4.0f * last_phase - PI * k);
+                        qpd = (q & 1) ^ q;
+
+                        diff_phase = -0.000000397912725f * (433096375.5250785f * qpd - 137858858 * phase + 137858858 * last_phase);
+
+                        Synth_Magn[index] += magn;
+                        Synth_Freq[index] = diff_phase * pshift;
+                    }
                 }
             }
-            
+            //Serial.println("------------------");
+
             for (int k = 0; k < HALF_FFT_SIZE; k++) {
                 float magn = Synth_Magn[k];
                 diff_phase = Synth_Freq[k];
-                
+
                 diff_phase = 0.01823690973512442f * diff_phase;
-                
+
                 Phase_Sum[k] += diff_phase;
                 float phase = Phase_Sum[k];
-                
+
                 FFT_Split_Frame[2 * k]     = magn * arm_cos_f32(phase);
                 FFT_Split_Frame[2 * k + 1] = magn * arm_sin_f32(phase);
             }
-            
+
             split_rifft_f32(FFT_Split_Frame, HALF_FFT_SIZE, coefA, coefB, IFFT_Synth_Split_Frame);
             arm_cfft_f32(instance, IFFT_Synth_Split_Frame, 1, 1);
-            
+
             for (int k = 0; k < FFT_SIZE; k++) {
                 Synth_Accum[k] += (IFFT_Synth_Split_Frame[k] * FFT_SIZE * window[k]) / (HALF_FFT_SIZE * OVER_SAMPLE);
             }
-            
+
             audio_block_t *synthBlock = allocate();
             arm_float_to_q15(Synth_Accum, synthBlock->data, AUDIO_BLOCK_SAMPLES);
-            
+
             memmove(Synth_Accum,  Synth_Accum + STEP_SIZE, FFT_SIZE * sizeof(float));
-            
+
             transmit(synthBlock);
             release(synthBlock);
             release(blocklist[0]);
